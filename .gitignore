@@ -1,0 +1,22 @@
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# Cache e bytecode Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Variaveis de ambiente e segredos
+.env
+*.env
+
+# Dados brutos e artefatos locais
+# (estrutura definitiva e politica de retencao ainda serao decididas)
+data/
+
+# Testes
+.pytest_cache/
+.coverage
+htmlcov/
