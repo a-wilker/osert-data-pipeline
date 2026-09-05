@@ -1,2 +1,2 @@
 # osert-data-pipeline
-Sistema de dados municipais
+Pipeline de Engenharia de Dados para coleta, validação e publicação de indicadores socioeconômicos de Teresina a partir do SIDRA/IBGE.
