@@ -33,6 +33,27 @@ jobs:
       - name: Executar testes unitários
         run: python -m unittest discover -s tests -v
 
+      - name: Diagnosticar acesso à API
+        run: |
+          python - <<'PY'
+          import requests
+
+          url_all = "https://apisidra.ibge.gov.br/values/t/6468/n6/2211001/v/4099/p/all/h/n/f/a/d/s"
+          url_last = url_all.replace("/p/all/", "/p/last/")
+          agente = {"User-Agent": "osert-data-pipeline/0.1 (+https://github.com/a-wilker/osert-data-pipeline)"}
+
+          for nome, url, cabecalhos in (
+              ("all-padrão", url_all, None),
+              ("all-identificado", url_all, agente),
+              ("last-padrão", url_last, None),
+              ("last-identificado", url_last, agente),
+          ):
+              resposta = requests.get(url, headers=cabecalhos, timeout=30)
+              print(f"{nome}: status={resposta.status_code}, bytes={len(resposta.content)}")
+              if resposta.status_code != 200:
+                  print(resposta.text[:300])
+          PY
+
       - name: Validar consulta integrada ao SIDRA
         run: |
           python - <<'PY'
