@@ -1,5 +1,9 @@
-import requests
+import hashlib
+from pathlib import Path
+
 import pandas as pd
+import requests
+
 # Código da tabela do SIDRA que contém a taxa de desocupação.
 TABELA = "6468"
 
@@ -20,7 +24,27 @@ URL = (
     "/h/n/f/a/d/s"
 )
 
-def extrair_taxa_desocupacao():
+# Diretório local em que a resposta original da API será preservada.
+DIRETORIO_DADOS_BRUTOS = Path("data/raw")
+
+
+def _salvar_resposta_bruta(conteudo, periodo, diretorio):
+    """Salva os bytes originais usando seus metadados e SHA-256 no nome."""
+    sha256 = hashlib.sha256(conteudo).hexdigest()
+    nome = (
+        f"tabela-{TABELA}_variavel-{VARIAVEL}_territorio-{TERRITORIO}"
+        f"_periodo-{periodo}_sha256-{sha256}.json"
+    )
+    caminho = diretorio / nome
+
+    diretorio.mkdir(parents=True, exist_ok=True)
+    if not caminho.exists():
+        caminho.write_bytes(conteudo)
+
+    return caminho
+
+
+def extrair_taxa_desocupacao(diretorio_dados_brutos=DIRETORIO_DADOS_BRUTOS):
     # Faz o pedido de dados para a API do IBGE.
     resposta = requests.get(URL, timeout=30)
 
@@ -41,6 +65,17 @@ def extrair_taxa_desocupacao():
     # Confirma que o indicador recebido é a taxa de desocupação.
     if dados[0]["D2C"] != VARIAVEL:
         raise ValueError("A API retornou um indicador diferente do esperado.")
+
+    periodo = dados[0].get("D3C")
+    if periodo is None or not str(periodo).strip():
+        raise ValueError("A API retornou D3C ausente ou vazio para o período.")
+
+    # Preserva os mesmos bytes recebidos antes da conversão para DataFrame.
+    _salvar_resposta_bruta(
+        resposta.content,
+        periodo,
+        Path(diretorio_dados_brutos),
+    )
 
     # Transforma os dados recebidos em uma tabela do Pandas.
     df = pd.DataFrame(dados)
