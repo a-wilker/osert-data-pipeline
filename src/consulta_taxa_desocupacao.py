@@ -15,6 +15,9 @@ URL = (
     "/h/n/f/a/d/s"
 )
 
+# Evita que a API escolha XML por negociação automática de conteúdo.
+CABECALHOS = {"Accept": "application/json"}
+
 DIRETORIO_DADOS_BRUTOS = Path("data/raw")
 
 
@@ -35,7 +38,7 @@ def _salvar_resposta_bruta(conteudo, periodo, diretorio):
 
 
 def extrair_taxa_desocupacao(diretorio_dados_brutos=DIRETORIO_DADOS_BRUTOS):
-    resposta = requests.get(URL, timeout=30)
+    resposta = requests.get(URL, headers=CABECALHOS, timeout=30)
     resposta.raise_for_status()
     dados = resposta.json()
 
