@@ -7,7 +7,7 @@ from unittest.mock import Mock, patch
 
 import requests
 
-from src.consulta_taxa_desocupacao import URL, extrair_taxa_desocupacao
+from src.consulta_taxa_desocupacao import CABECALHOS, URL, extrair_taxa_desocupacao
 
 
 OBSERVACAO_VALIDA = {
@@ -55,8 +55,9 @@ class ExtracaoTaxaDesocupacaoTest(unittest.TestCase):
     def test_url_solicita_todos_os_periodos(self, mock_get):
         mock_get.return_value = self._resposta([OBSERVACAO_VALIDA])
         extrair_taxa_desocupacao(self.diretorio_dados_brutos)
-        mock_get.assert_called_once_with(URL, timeout=30)
+        mock_get.assert_called_once_with(URL, headers=CABECALHOS, timeout=30)
         self.assertIn("/p/all/", URL)
+        self.assertEqual(CABECALHOS["Accept"], "application/json")
 
     @patch("src.consulta_taxa_desocupacao.requests.get")
     def test_resposta_vazia_falha_claramente(self, mock_get):
