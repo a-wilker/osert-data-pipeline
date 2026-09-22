@@ -4,6 +4,11 @@ from pathlib import Path
 import pandas as pd
 import requests
 
+if __package__:
+    from .arquivos import gravar_imutavel
+else:
+    from arquivos import gravar_imutavel
+
 TABELA = "6468"
 VARIAVEL = "4099"
 TERRITORIO = "2211001"
@@ -30,14 +35,10 @@ def _salvar_resposta_bruta(conteudo, periodo, diretorio):
     )
     caminho = diretorio / nome
 
-    diretorio.mkdir(parents=True, exist_ok=True)
-    if not caminho.exists():
-        caminho.write_bytes(conteudo)
-
-    return caminho
+    return gravar_imutavel(caminho, conteudo)
 
 
-def extrair_taxa_desocupacao(diretorio_dados_brutos=DIRETORIO_DADOS_BRUTOS):
+def _consultar_e_salvar(diretorio_dados_brutos):
     resposta = requests.get(URL, headers=CABECALHOS, timeout=30)
     resposta.raise_for_status()
     dados = resposta.json()
@@ -61,15 +62,17 @@ def extrair_taxa_desocupacao(diretorio_dados_brutos=DIRETORIO_DADOS_BRUTOS):
             raise ValueError(f"A API retornou o período D3C duplicado: {periodo}.")
         periodos.add(periodo)
 
-    _salvar_resposta_bruta(
-        resposta.content,
-        PERIODO,
-        Path(diretorio_dados_brutos),
-    )
+        for campo in ("D1N", "D3N", "MN", "V"):
+            valor = observacao.get(campo)
+            if not isinstance(valor, str) or not valor.strip():
+                raise ValueError(
+                    f"A API retornou {campo} ausente, vazio ou não textual "
+                    f"para o período {periodo}."
+                )
 
     df = pd.DataFrame(dados)
     resultado = df[["D1N", "D3N", "MN", "V"]]
-    return resultado.rename(
+    resultado = resultado.rename(
         columns={
             "D1N": "Território",
             "D3N": "Período",
@@ -77,6 +80,24 @@ def extrair_taxa_desocupacao(diretorio_dados_brutos=DIRETORIO_DADOS_BRUTOS):
             "V": "Taxa de desocupação",
         }
     )
+
+    caminho = _salvar_resposta_bruta(
+        resposta.content,
+        PERIODO,
+        Path(diretorio_dados_brutos),
+    )
+    return resultado, caminho
+
+
+def extrair_taxa_desocupacao(diretorio_dados_brutos=DIRETORIO_DADOS_BRUTOS):
+    resultado, _ = _consultar_e_salvar(diretorio_dados_brutos)
+    return resultado
+
+
+def coletar_taxa_desocupacao(diretorio_dados_brutos=DIRETORIO_DADOS_BRUTOS):
+    """Devolve o caminho exato da resposta bruta desta coleta."""
+    _, caminho = _consultar_e_salvar(diretorio_dados_brutos)
+    return caminho
 
 
 def main():

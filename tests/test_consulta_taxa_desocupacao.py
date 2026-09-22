@@ -3,7 +3,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import requests
 
@@ -37,9 +37,12 @@ class ExtracaoTaxaDesocupacaoTest(unittest.TestCase):
         self.diretorio_temporario.cleanup()
 
     def _resposta(self, dados, conteudo=None):
-        resposta = Mock()
-        resposta.json.return_value = dados
-        resposta.content = conteudo or json.dumps(dados).encode("utf-8")
+        resposta = requests.Response()
+        resposta.status_code = 200
+        resposta.encoding = "utf-8"
+        resposta._content = (
+            json.dumps(dados).encode("utf-8") if conteudo is None else conteudo
+        )
         return resposta
 
     @patch("src.consulta_taxa_desocupacao.requests.get")
@@ -50,6 +53,42 @@ class ExtracaoTaxaDesocupacaoTest(unittest.TestCase):
         resultado = extrair_taxa_desocupacao(self.diretorio_dados_brutos)
         self.assertEqual(len(resultado), 2)
         self.assertEqual(list(resultado["Taxa de desocupação"]), ["7.4", "7.1"])
+
+    @patch("src.consulta_taxa_desocupacao.requests.get")
+    def test_valor_ausente_na_segunda_observacao_falha_antes_de_persistir(self, mock_get):
+        incompleta = {**OUTRA_OBSERVACAO_VALIDA}
+        del incompleta["V"]
+        mock_get.return_value = self._resposta([OBSERVACAO_VALIDA, incompleta])
+        with self.assertRaisesRegex(ValueError, "V ausente"):
+            extrair_taxa_desocupacao(self.diretorio_dados_brutos)
+        self.assertFalse(self.diretorio_dados_brutos.exists())
+
+    @patch("src.consulta_taxa_desocupacao.requests.get")
+    def test_campos_de_saida_invalidos_falham_antes_de_persistir(self, mock_get):
+        ausente = object()
+        for campo in ("D1N", "D3N", "MN", "V"):
+            for valor in (ausente, None, "", "   ", 7.1, [], {}):
+                for indice in (0, 1):
+                    with self.subTest(campo=campo, valor=valor, indice=indice):
+                        dados = [
+                            {**OBSERVACAO_VALIDA},
+                            {**OUTRA_OBSERVACAO_VALIDA},
+                        ]
+                        if valor is ausente:
+                            del dados[indice][campo]
+                        else:
+                            dados[indice][campo] = valor
+                        mock_get.return_value = self._resposta(dados)
+                        with self.assertRaisesRegex(ValueError, campo):
+                            extrair_taxa_desocupacao(self.diretorio_dados_brutos)
+                        self.assertFalse(self.diretorio_dados_brutos.exists())
+
+    @patch("src.consulta_taxa_desocupacao.requests.get")
+    def test_json_invalido_falha_antes_de_persistir(self, mock_get):
+        mock_get.return_value = self._resposta(None, b'{"incompleto":')
+        with self.assertRaises(requests.exceptions.JSONDecodeError):
+            extrair_taxa_desocupacao(self.diretorio_dados_brutos)
+        self.assertFalse(self.diretorio_dados_brutos.exists())
 
     @patch("src.consulta_taxa_desocupacao.requests.get")
     def test_url_solicita_todos_os_periodos(self, mock_get):
@@ -108,7 +147,9 @@ class ExtracaoTaxaDesocupacaoTest(unittest.TestCase):
 
     @patch("src.consulta_taxa_desocupacao.requests.get")
     def test_preserva_exatamente_os_bytes_da_resposta(self, mock_get):
-        conteudo = b'[{"espacos":  preservados, "bytes": "\xc3\xa1"}]\n'
+        conteudo = (
+            json.dumps([OBSERVACAO_VALIDA], ensure_ascii=False, indent=2) + "\n"
+        ).encode("utf-8")
         mock_get.return_value = self._resposta([OBSERVACAO_VALIDA], conteudo)
         extrair_taxa_desocupacao(self.diretorio_dados_brutos)
         arquivo = next(self.diretorio_dados_brutos.iterdir())
@@ -133,7 +174,7 @@ class ExtracaoTaxaDesocupacaoTest(unittest.TestCase):
     @patch("src.consulta_taxa_desocupacao.requests.get")
     def test_erro_http_interrompe_antes_de_persistir(self, mock_get):
         resposta = self._resposta([OBSERVACAO_VALIDA])
-        resposta.raise_for_status.side_effect = requests.HTTPError("erro")
+        resposta.status_code = 503
         mock_get.return_value = resposta
         with self.assertRaises(requests.HTTPError):
             extrair_taxa_desocupacao(self.diretorio_dados_brutos)
