@@ -1,6 +1,6 @@
-# Proposta: testes automáticos nos PRs
+# Testes automáticos nos PRs
 
-Situação: aprovada pelo usuário; implementação em validação no GitHub.
+Situação: aprovada e implementada no PR #4. A primeira execução remota passou.
 Preparada em 23/09/2026 após a integração do PR #3.
 
 ## Objetivo e motivo
@@ -29,9 +29,9 @@ A configuração concede leitura do código ao processo de teste.
 Não executa atualização da base real, publicação do sistema ou agendamento
 de coleta. A instalação das dependências exige acesso à rede.
 
-## Arquivo proposto
+## Configuração implementada
 
-Destino após autorização: `.github/workflows/testes.yml`.
+Arquivo: `.github/workflows/testes.yml`.
 
 ```yaml
 name: Testes do sistema de dados
@@ -87,18 +87,18 @@ jobs:
 5. Integrar à main e conferir a execução após a integração.
 
 A execução local na main passou: 128 testes e `pip check` sem incompatibilidades.
-A execução em um ambiente limpo do GitHub ainda não foi realizada.
-A configuração acima é uma proposta e não deve ser descrita como validada
-no GitHub antes dessa primeira execução.
+A [primeira execução em ambiente limpo do GitHub](https://github.com/a-wilker/osert-data-pipeline/actions/runs/35913754395) passou em 23/09/2026,
+incluindo instalação, verificação de dependências e os 128 testes.
+A integração é acompanhada no [PR #4](https://github.com/a-wilker/osert-data-pipeline/pull/4).
 
 Exigir esse teste como regra obrigatória de proteção da main é uma configuração
 administrativa separada; não está incluída nesta proposta.
 
-## Autorização necessária
+## Autorização e escopo
 
 O AGENTS.md exige autorização explícita para adicionar tecnologia importante
 e cita GitHub Actions como algo a introduzir quando necessário.
-A aprovação desta proposta autoriza implementar o arquivo, criar a branch,
+O usuário aprovou implementar o arquivo, criar a branch,
 fazer commit e push, abrir o PR, validar a execução e integrar após sucesso.
 A automação utilizará os recursos de execução do repositório no GitHub.
 

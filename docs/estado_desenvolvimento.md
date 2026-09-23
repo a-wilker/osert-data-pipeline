@@ -83,3 +83,11 @@ A revisão para integração está registrada no [PR #3](https://github.com/a-wi
 - A leitura dos arquivos do backup respeita o limite restante de bytes.
 - Suíte completa após a correção: 128 testes passaram.
 - `python -m pip check`: nenhuma dependência incompatível detectada.
+
+## Testes automáticos
+
+Configuração implementada no [PR #4](https://github.com/a-wilker/osert-data-pipeline/pull/4),
+com autorização do usuário. A [primeira execução no GitHub](https://github.com/a-wilker/osert-data-pipeline/actions/runs/35913754395)
+validou instalação, dependências e os 128 testes em Ubuntu 24.04 com Python 3.14.4.
+O fluxo atende PRs para main, pushes na main e execução manual.
+Veja [configuração e limites](proposta_testes_automaticos.md).
