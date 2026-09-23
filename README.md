@@ -180,3 +180,8 @@ aceitam uma execução anterior e verificam os arquivos daquela publicação.
 Veja [comparação, consulta histórica e compatibilidade](docs/revisoes_historico.md).
 
 [Estado atual e validações da entrega](docs/estado_desenvolvimento.md).
+
+## Testes automáticos
+
+O GitHub Actions executa a suíte em PRs para a main e após alterações na main.
+Consulte [configuração e escopo](docs/proposta_testes_automaticos.md).
