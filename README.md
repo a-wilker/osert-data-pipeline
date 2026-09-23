@@ -44,8 +44,8 @@ acessar a rede. A verificação confere os arquivos e sua correspondência com
 a origem. O backup permite recuperar dados e histórico em uma pasta nova.
 
 Consulte a [operação do sistema](docs/operacao_sistema.md) para formatos de
-período, restauração, integridade, limites e códigos de saída. A criação de
-uma API local de consulta está [proposta para aprovação](docs/proposta_api_consulta.md).
+período, restauração, integridade, limites e códigos de saída. A
+[API local de consulta](docs/api_consulta.md) oferece essas consultas por HTTP.
 
 ## Indicadores disponíveis
 
@@ -75,6 +75,10 @@ distintas e não devem ser somados ou comparados diretamente.
 O programa consulta a API oficial do SIDRA/IBGE e exibe a série histórica da taxa de desocupação de Teresina (PI).
 
 ### Preparação do ambiente
+
+As dependências fixadas exigem Python 3.12 ou superior. A entrega foi
+validada com Python 3.14.4 em Ubuntu/WSL. Confira a versão com
+`python3 --version` antes de criar o ambiente virtual.
 
 ```bash
 python3 -m venv .venv

@@ -127,3 +127,24 @@ class BackupDadosTest(PublicacaoTestCase):
         with self.assertRaisesRegex(ValueError, "bloqueio"):
             criar_backup(self.pacote, self.raiz)
         self.assertFalse(self.pacote.exists())
+
+    def test_limite_do_backup_inclui_manifesto(self):
+        arquivos = [self.raiz / "catalogo.json"]
+        for pasta in ("raw", "processed", "execucoes"):
+            arquivos.extend((self.raiz / pasta).glob("*"))
+        tamanho_dados = sum(p.stat().st_size for p in arquivos)
+        with patch("src.backup_dados.MAXIMO_BYTES", tamanho_dados):
+            with self.assertRaisesRegex(ValueError, "limite"):
+                criar_backup(self.pacote, self.raiz)
+        self.assertFalse(self.pacote.exists())
+
+    def test_limite_exato_incluindo_manifesto_permite_restauracao(self):
+        criar_backup(self.pacote, self.raiz)
+        with zipfile.ZipFile(self.pacote) as pacote:
+            tamanho_total = sum(item.file_size for item in pacote.infolist())
+        outro = self.raiz.parent / "limite-exato.zip"
+        with patch("src.backup_dados.MAXIMO_BYTES", tamanho_total):
+            criar_backup(outro, self.raiz)
+            restaurar_backup(outro, self.destino)
+        self.assertEqual(outro.read_bytes(), self.pacote.read_bytes())
+        self.assertEqual(consultar_dados(self.destino), consultar_dados(self.raiz))

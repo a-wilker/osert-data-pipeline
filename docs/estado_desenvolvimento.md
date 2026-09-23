@@ -21,7 +21,7 @@ do sistema de dados de Teresina.
 
 ## Validações executadas nesta entrega
 
-- Suíte completa: **126 testes passaram**.
+- Suíte completa: **128 testes passaram**.
 - Atualização real dos dois indicadores: sucesso, sem alteração das observações.
 - Desocupação: 58 observações, 8 símbolos, sem lacunas entre os extremos.
 - População: 22 observações; os anos ausentes foram preservados sem preenchimento.
@@ -63,7 +63,7 @@ O código, os testes e a documentação foram reunidos na branch
 parte da entrega versionada.
 
 Para continuar em outra sessão do Codex, selecione essa branch.
-A integração à branch principal é uma etapa posterior de revisão.
+A revisão para integração está registrada no [PR #3](https://github.com/a-wilker/osert-data-pipeline/pull/3).
 
 ## Referências para continuidade
 
@@ -72,3 +72,14 @@ A integração à branch principal é uma etapa posterior de revisão.
 - [Revisões e consultas históricas](revisoes_historico.md).
 - [Contrato da desocupação](contratos/taxa_desocupacao_teresina.md).
 - [Contrato da população](contratos/populacao_estimada_teresina.md).
+
+## Revisão para integração
+
+- Corrigida a contagem do limite do backup: dados e manifesto entram no
+  mesmo limite de 100 MiB usado na restauração.
+- O teste de regressão reproduziu a falha antes da correção.
+- Testado o excesso causado pelo manifesto e o sucesso de criação e
+  restauração no limite exato.
+- A leitura dos arquivos do backup respeita o limite restante de bytes.
+- Suíte completa após a correção: 128 testes passaram.
+- `python -m pip check`: nenhuma dependência incompatível detectada.

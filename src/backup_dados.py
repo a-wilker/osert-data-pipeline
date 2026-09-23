@@ -76,10 +76,12 @@ def criar_backup(caminho_saida, diretorio_dados=Path("data")):
             nome = caminho.relative_to(raiz).as_posix()
             if not _nome_permitido(nome):
                 raise ValueError(f"Nome de arquivo não suportado: {nome}.")
-            total += caminho.stat().st_size
+            with caminho.open("rb") as arquivo:
+                conteudo = arquivo.read(MAXIMO_BYTES - total + 1)
+            total += len(conteudo)
             if total > MAXIMO_BYTES:
                 raise ValueError("Conteúdo excede o limite de 100 MiB do backup.")
-            arquivos[nome] = caminho.read_bytes()
+            arquivos[nome] = conteudo
         manifesto = {
             "versao": 1,
             "arquivos": [
@@ -88,6 +90,8 @@ def criar_backup(caminho_saida, diretorio_dados=Path("data")):
             ],
         }
         arquivos["manifesto.json"] = (json.dumps(manifesto, ensure_ascii=False, sort_keys=True, indent=2) + "\n").encode("utf-8")
+        if total + len(arquivos["manifesto.json"]) > MAXIMO_BYTES:
+            raise ValueError("Conteúdo e manifesto excedem o limite de 100 MiB do backup.")
         buffer = io.BytesIO()
         with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as pacote:
             for nome, conteudo in sorted(arquivos.items()):

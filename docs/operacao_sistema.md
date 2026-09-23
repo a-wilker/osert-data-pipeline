@@ -173,8 +173,9 @@ bruto/CSV. Ela prepara os dados em uma pasta temporária e só publica o
 destino após a validação. O destino precisa ser uma pasta que ainda não
 exista. A origem e pastas existentes permanecem preservadas.
 
-Esta implementação atende bases locais de até 100 MiB descompactados e
-10 mil arquivos. O pacote é uma cópia local: proteção contra perda do
+Esta implementação atende pacotes com até 100 MiB de conteúdo descompactado,
+incluindo o manifesto, e até 10 mil arquivos de dados e histórico. A criação
+e a restauração usam o mesmo limite. O pacote é uma cópia local: proteção contra perda do
 computador exige guardar uma cópia em outro local, decisão ainda não
 automatizada pelo sistema.
 
