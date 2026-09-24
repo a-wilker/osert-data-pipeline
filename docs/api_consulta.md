@@ -181,3 +181,10 @@ Execuções antigas, interrompidas ou com falha não são anunciadas como consul
 Use o ID do item em `dados?execucao=ID` para reproduzir a consulta.
 Mensagens internas de falha e caminhos de arquivos são omitidos nesta rota.
 O histórico completo para diagnóstico continua disponível pelo terminal.
+
+## Integridade e resultado das atualizações
+
+A rota `/saude` inclui `atencao_operacional` e o estado de `atualizacao`
+por indicador. Uma falha recente de coleta não torna os dados anteriores
+corrompidos: a resposta pode ser HTTP 200 com `saudavel: true` e
+`atencao_operacional: true`. Consulte os [estados operacionais](operacao_sistema.md#estado-operacional-das-atualizações).

@@ -200,3 +200,52 @@ O sistema ainda não oferece painel, autenticação, agendamento ou banco de dad
 Atualizações registram períodos novos e observações alteradas. As consultas
 aceitam uma execução anterior e verificam os arquivos daquela publicação.
 Veja [comparação, consulta histórica e compatibilidade](revisoes_historico.md).
+
+## Estado operacional das atualizações
+
+O comando `verificar` e a rota `GET /saude` distinguem dois resultados:
+
+- `saudavel`: integridade dos dados e dos registros que foram verificados.
+- `atencao_operacional`: necessidade de conferir tentativas de atualização,
+  execuções sem conclusão ou bloqueio. `null` significa que esse estado
+  não pôde ser determinado, por exemplo devido a histórico corrompido.
+
+Cada indicador contém `atualizacao`, com o estado, a última tentativa,
+a última tentativa concluída com sucesso e IDs de execuções sem conclusão.
+Os estados possíveis são `sem_registro`, `ultima_tentativa_falhou`,
+`execucao_sem_conclusao` e `ultima_tentativa_concluida`.
+Uma execução sem conclusão pode estar ativa, interrompida ou ter falhado ao
+gravar seu registro final; não se presume que o processo esteja rodando.
+
+Uma falha de coleta pode produzir `saudavel: true` e
+`atencao_operacional: true`: os dados anteriores estão disponíveis, mas a
+última tentativa falhou. A API mantém HTTP 200 quando a base está íntegra.
+O diagnóstico detalhado do erro permanece no histórico acessível pelo terminal.
+
+O histórico é ordenado pelos instantes das tentativas, considerando o fuso
+horário. Datas inválidas, sem fuso ou com término anterior ao início são
+rejeitadas. Registros concluídos precisam informar o horário final.
+Uma atualização bem-sucedida posterior resolve o alerta da última falha;
+execuções antigas sem conclusão continuam explícitas até sua investigação.
+
+Fluxo: leitura do catálogo → validação dos dados → leitura e validação do
+histórico → composição do estado por indicador → relatório de integridade
+e atenção operacional. A operação não modifica arquivos nem consulta o SIDRA.
+
+Esse relatório não afirma que a publicação contém o último período disponível
+no IBGE. Detectar atraso em relação à fonte exige conhecer seu calendário
+de divulgação ou realizar uma nova coleta.
+
+Essencial: integridade e sucesso da última coleta são informações diferentes.
+Para depois: calendário esperado da fonte e notificações operacionais.
+
+1. Como uma base pode estar íntegra após uma coleta falhar?
+2. Uma execução sem conclusão prova que há um processo ativo?
+3. Qual a diferença entre `atencao_operacional: false` e `null`?
+
+Prática: no teste de estado operacional, simule uma falha de rede e confira
+que a consulta anterior continua disponível enquanto o relatório sinaliza atenção.
+
+A validação da publicação também confere nome, critério de escolha da versão,
+versão inteira do contrato e horário de publicação com fuso. Metadados
+incompletos são rejeitados em consultas, verificações e recuperação.

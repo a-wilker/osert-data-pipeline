@@ -70,7 +70,7 @@ def _ler_catalogo(raiz):
     catalogo = json.loads(caminho.read_bytes())
     if (
         not isinstance(catalogo, dict)
-        or catalogo.get("versao") != 1
+        or type(catalogo.get("versao")) is not int or catalogo.get("versao") != 1
         or not isinstance(catalogo.get("indicadores"), dict)
     ):
         raise ValueError("Catálogo inválido ou de versão não suportada.")
@@ -100,6 +100,7 @@ def _linhas_catalogadas(raiz, entrada, indicador=INDICADOR):
     if not isinstance(entrada, dict):
         raise ValueError("Registro do indicador inválido no catálogo.")
     esperados = {
+        "nome": config["nome"], "criterio_versao_atual": "ultima_coleta_validada",
         "fonte": "SIDRA/IBGE", "tabela": config["tabela"], "variavel": config["variavel"],
         "territorio_codigo": TERRITORIO, "territorio_nome": "Teresina (PI)",
         "unidade": config["unidade"], "periodicidade": config["periodicidade"],
@@ -110,6 +111,15 @@ def _linhas_catalogadas(raiz, entrada, indicador=INDICADOR):
     for campo, esperado in esperados.items():
         if entrada.get(campo) != esperado:
             raise ValueError(f"Metadado {campo} incompatível com o indicador {indicador}.")
+
+    if type(entrada.get("versao_contrato")) is not int:
+        raise ValueError("Versão do contrato deve ser um inteiro.")
+    try:
+        publicado = entrada.get("publicado_em_utc")
+        if not isinstance(publicado, str) or datetime.fromisoformat(publicado).utcoffset() is None:
+            raise ValueError
+    except ValueError:
+        raise ValueError("Horário de publicação inválido; informe uma data ISO com fuso horário.") from None
 
     for tipo, pasta in (("bruto", "raw"), ("csv", "processed")):
         referencia = entrada.get(tipo)
@@ -467,12 +477,41 @@ def verificar_publicacoes_registradas(raiz, registros):
     return resultado
 
 
+
+def _estado_atualizacao(registros, indicador):
+    tentativas = [r for r in registros if r.get("indicador") == indicador]
+    concluidas = [r for r in tentativas if r["status"] in ("atualizado", "sem_alteracao")]
+    pendentes = [r["id"] for r in tentativas if r["status"] == "em_execucao"]
+
+    def resumo(registro):
+        return {campo: registro.get(campo) for campo in (
+            "id", "status", "etapa", "iniciado_em_utc", "finalizado_em_utc",
+        )}
+
+    ultima = tentativas[0] if tentativas else None
+    if ultima is None:
+        estado = "sem_registro"
+    elif ultima["status"] == "falha":
+        estado = "ultima_tentativa_falhou"
+    elif ultima["status"] == "em_execucao":
+        estado = "execucao_sem_conclusao"
+    else:
+        estado = "ultima_tentativa_concluida"
+    return {
+        "estado": estado,
+        "ultima_tentativa": resumo(ultima) if ultima else None,
+        "ultima_concluida": resumo(concluidas[0]) if concluidas else None,
+        "execucoes_sem_conclusao": pendentes,
+        "requer_atencao": estado != "ultima_tentativa_concluida" or bool(pendentes),
+    }
+
+
 def verificar_dados(diretorio_dados=Path("data"), indicador=None, *, incluir_historico=False):
     """Confere dados publicados e relata lacunas sem alterar arquivos nem consultar a rede."""
     if indicador is not None:
         _configuracao(indicador)
     raiz = Path(diretorio_dados)
-    relatorio = {"saudavel": True, "indicadores": [], "avisos": []}
+    relatorio = {"saudavel": True, "atencao_operacional": None, "indicadores": [], "avisos": []}
     try:
         catalogo = _ler_catalogo(raiz)
     except (ValueError, OSError) as erro:
@@ -500,15 +539,27 @@ def verificar_dados(diretorio_dados=Path("data"), indicador=None, *, incluir_his
                 }
             except (ValueError, OSError) as erro:
                 item = {"indicador": identificador, "status": "erro", "mensagem": str(erro)}
+        item["atualizacao"] = None
         relatorio["indicadores"].append(item)
         if item["status"] != "ok":
             relatorio["saudavel"] = False
 
-    if (raiz / ".atualizacao.lock").exists():
+    bloqueado = (raiz / ".atualizacao.lock").exists()
+    if bloqueado:
         relatorio["avisos"].append("Existe bloqueio de atualização; confira se há uma execução ativa.")
     try:
         quantidade = len(list((raiz / "execucoes").glob("*.json")))
         registros = ler_execucoes(raiz, indicador, max(1, quantidade))
+        relatorio["atencao_operacional"] = bloqueado
+        for item in relatorio["indicadores"]:
+            estado = _estado_atualizacao(registros, item["indicador"])
+            item["atualizacao"] = estado
+            relatorio["atencao_operacional"] |= estado["requer_atencao"]
+            if estado["estado"] == "ultima_tentativa_falhou":
+                relatorio["avisos"].append(
+                    "Última atualização falhou para " + item["indicador"]
+                    + "; confira o histórico de execuções."
+                )
         if incluir_historico:
             historico = verificar_publicacoes_registradas(raiz, registros)
             relatorio["historico"] = historico

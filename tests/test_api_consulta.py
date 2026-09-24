@@ -244,3 +244,16 @@ class ApiConsultaTests(PublicacaoTestCase):
         self.assertEqual(status, 200)
         self.assertFalse(corpo["execucoes"][0]["publicacao_registrada"])
         self.assertNotIn("comparacao", corpo["execucoes"][0])
+
+    def test_saude_expoe_falha_operacional_sem_expor_mensagem_interna(self):
+        import requests
+        self.series["6579"] = requests.Timeout(f"Erro interno em {self.raiz}")
+        with self.assertRaises(requests.Timeout):
+            atualizar_dados(self.raiz, POPULACAO)
+        status, _, corpo = self.requisitar("/saude")
+        self.assertEqual(status, 200)
+        self.assertTrue(corpo["saudavel"])
+        self.assertTrue(corpo["atencao_operacional"])
+        item = next(i for i in corpo["indicadores"] if i["indicador"] == POPULACAO)
+        self.assertEqual(item["atualizacao"]["estado"], "ultima_tentativa_falhou")
+        self.assertNotIn(str(self.raiz), json.dumps(corpo))
