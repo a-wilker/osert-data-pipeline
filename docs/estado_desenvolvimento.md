@@ -135,3 +135,14 @@ Validações executadas:
 O usuário autorizou a continuidade do desenvolvimento e da publicação
 sem novas aprovações por etapa. A entrega segue por PR e integração após
 validação automática.
+
+## Contratos consultáveis — 24/09/2026
+
+Adicionadas consulta de contrato no terminal e rota HTTP por indicador.
+As respostas descrevem identificação, território, unidade, grão, períodos,
+valores, colunas e filtros sem consultar arquivos publicados ou rede.
+
+153 testes passaram, incluindo equivalência das regras com as observações
+normalizadas, resposta independente do catálogo e rejeição de parâmetros extras.
+As regras de formato de período são compartilhadas com a validação dos filtros.
+A etapa de CSV anterior foi integrada pelo PR #6 e validada na main.

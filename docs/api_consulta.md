@@ -33,6 +33,7 @@ A atualização acessa o SIDRA. As rotas HTTP funcionam somente sobre a base loc
 | GET /indicadores | Objeto com `indicadores`: identificador, nome, unidade, periodicidade e `publicado` |
 | GET /indicadores/{id}/dados | Observações filtradas e metadados da publicação |
 | GET /indicadores/{id}/dados.csv | Download de CSV com filtros e identificação da publicação |
+| GET /indicadores/{id}/contrato | Regras do indicador, sem exigir publicação |
 | GET /indicadores/{id}/metadados | Identificador, fonte, contrato, cobertura, arquivos e versão publicada |
 | GET /indicadores/{id}/execucoes | Execuções recentes e resumo das alterações |
 | GET /saude | Integridade da base, lacunas entre extremos e avisos operacionais |
@@ -245,3 +246,52 @@ do bruto. Para depois: ferramentas que importam CSV e guardam metadados.
 
 Prática: consulte o mesmo indicador com dois filtros e compare os hashes
 do conteúdo e do bruto.
+
+## Contrato do indicador em JSON
+
+```text
+GET /indicadores/populacao_estimada_teresina/contrato
+GET /indicadores/taxa_desocupacao_teresina/contrato
+```
+
+A rota descreve as regras suportadas, mesmo antes da primeira publicação.
+Não aceita filtros. Um indicador desconhecido retorna 404; parâmetros
+extras retornam 400. Não lê o catálogo nem acessa a rede.
+
+O objeto contém versão do contrato, códigos SIDRA, território, unidade,
+periodicidade, grão, formato de período, domínio numérico, símbolos,
+colunas em ordem, representação CSV e regras de filtros.
+O padrão de período deve corresponder ao texto inteiro; o ano precisa
+estar entre `ano_minimo` e `ano_maximo`.
+Um máximo numérico `null` significa que o contrato não fixa um teto.
+
+`tipo_json: "string"` informa como cada coluna da observação aparece na
+resposta de dados. Valores numéricos continuam como texto para preservar
+precisão. O filtro `ano` é recebido como inteiro pela função de consulta.
+`vazio_permitido` descreve as colunas que podem conter texto vazio:
+valor numérico em símbolos SIDRA e trimestre em séries anuais.
+
+Contrato e metadados têm funções distintas: o contrato descreve regras
+suportadas pelo código; os metadados descrevem uma publicação específica,
+com cobertura temporal, horário e hashes dos arquivos.
+A resposta de contrato não comprova que exista uma publicação nem que a base
+esteja íntegra. Use `/indicadores`, `/metadados` e `/saude` para essas informações.
+
+Também disponível no terminal:
+
+```bash
+python -m src.sistema_dados contrato --indicador populacao_estimada_teresina
+```
+
+Fluxo: identificador → configuração suportada → descrição das regras em JSON.
+Os detalhes metodológicos e de entrada permanecem nos documentos de contratos.
+
+Essencial agora: distinguir regra de dados e versão publicada.
+Para depois: consumidores que geram formulários e validam entradas usando o contrato.
+
+1. Um contrato disponível significa que os dados já foram coletados?
+2. Por que o valor numérico é descrito como string na saída?
+3. Onde encontrar o hash de uma publicação específica?
+
+Prática: compare os contratos anual e trimestral e confira o formato do período
+e a possibilidade de trimestre vazio.

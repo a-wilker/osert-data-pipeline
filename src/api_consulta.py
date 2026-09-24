@@ -11,7 +11,7 @@ from urllib.parse import parse_qs, urlsplit
 
 from .sistema_dados import (
     CONFIGURACOES, PublicacaoAusente, _validar_filtros,
-    consultar_publicacao, listar_indicadores, listar_execucoes, serializar_publicacao, verificar_dados,
+    consultar_publicacao, consultar_contrato, listar_indicadores, listar_execucoes, serializar_publicacao, verificar_dados,
     ExecucaoNaoEncontrada, PublicacaoHistoricaAusente,
 )
 
@@ -93,12 +93,15 @@ def consultar_rota(alvo, raiz):
         _parametros(url.query, set())
         relatorio = _saude_publica(verificar_dados(raiz))
         return (200 if relatorio["saudavel"] else 503), relatorio
-    rota = re.fullmatch(r"/indicadores/([a-z0-9_]+)/(dados|dados\.csv|metadados|execucoes)", url.path)
+    rota = re.fullmatch(r"/indicadores/([a-z0-9_]+)/(dados|dados\.csv|metadados|execucoes|contrato)", url.path)
     if not rota:
         raise ErroConsulta(404, "rota_desconhecida", "Rota não encontrada.")
     indicador, recurso = rota.groups()
     if indicador not in CONFIGURACOES:
         raise ErroConsulta(404, "indicador_desconhecido", "Indicador não encontrado.")
+    if recurso == "contrato":
+        _parametros(url.query, set())
+        return 200, consultar_contrato(indicador)
     if recurso == "execucoes":
         parametros = _parametros(url.query, {"limite"})
         valor = parametros.get("limite", "20")
