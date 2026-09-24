@@ -88,3 +88,42 @@ class RegistroExecucoesTest(PublicacaoTestCase):
         arquivo.write_text("{}")
         with self.assertRaisesRegex(ValueError, "Registro de execução inválido"):
             listar_execucoes(self.raiz)
+
+    def test_historico_ordena_instantes_com_fusos_diferentes(self):
+        primeira = atualizar_dados(self.raiz)
+        segunda = atualizar_dados(self.raiz)
+        for resultado, inicio, fim in (
+            (primeira, "2026-09-24T01:00:00+03:00", "2026-09-24T01:01:00+03:00"),
+            (segunda, "2026-09-23T23:00:00+00:00", "2026-09-23T23:01:00+00:00"),
+        ):
+            caminho = self.raiz / "execucoes" / f"{resultado['execucao_id']}.json"
+            registro = json.loads(caminho.read_bytes())
+            registro["iniciado_em_utc"] = inicio
+            registro["finalizado_em_utc"] = fim
+            caminho.write_text(json.dumps(registro))
+        self.assertEqual(listar_execucoes(self.raiz, limite=1)[0]["id"], segunda["execucao_id"])
+
+    def test_historico_rejeita_data_invalida_sem_fuso_ou_fim_anterior(self):
+        resultado = atualizar_dados(self.raiz)
+        caminho = self.raiz / "execucoes" / f"{resultado['execucao_id']}.json"
+        original = json.loads(caminho.read_bytes())
+        casos = [
+            {"iniciado_em_utc": "ontem"},
+            {"iniciado_em_utc": "2026-09-24T00:00:00"},
+            {"finalizado_em_utc": "amanha"},
+            {"finalizado_em_utc": "2000-01-01T00:00:00+00:00"},
+        ]
+        for alteracao in casos:
+            with self.subTest(alteracao=alteracao):
+                caminho.write_text(json.dumps({**original, **alteracao}))
+                with self.assertRaisesRegex(ValueError, "Horário"):
+                    listar_execucoes(self.raiz)
+
+    def test_execucao_concluida_sem_horario_final_e_invalida(self):
+        resultado = atualizar_dados(self.raiz)
+        caminho = self.raiz / "execucoes" / f"{resultado['execucao_id']}.json"
+        registro = json.loads(caminho.read_bytes())
+        registro["finalizado_em_utc"] = None
+        caminho.write_text(json.dumps(registro))
+        with self.assertRaisesRegex(ValueError, "Horário"):
+            listar_execucoes(self.raiz)

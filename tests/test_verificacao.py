@@ -85,3 +85,30 @@ class VerificacaoTest(PublicacaoTestCase):
             relatorio = verificar_dados(self.raiz)
         self.assertFalse(relatorio["saudavel"])
         self.assertTrue(all(item["status"] == "erro" for item in relatorio["indicadores"]))
+
+    def test_metadados_de_publicacao_incompletos_nao_passam_como_integros(self):
+        original = self.catalogo.read_bytes()
+        casos = (
+            ("nome", "Outro indicador"),
+            ("criterio_versao_atual", "desconhecido"),
+            ("versao_contrato", True),
+            ("publicado_em_utc", None),
+            ("publicado_em_utc", "ontem"),
+            ("publicado_em_utc", "2026-09-24T00:00:00"),
+        )
+        for campo, valor in casos:
+            with self.subTest(campo=campo, valor=valor):
+                catalogo = json.loads(original)
+                catalogo["indicadores"][DESOCUPACAO][campo] = valor
+                self.catalogo.write_text(json.dumps(catalogo))
+                self.assertFalse(verificar_dados(self.raiz, DESOCUPACAO)["saudavel"])
+                with self.assertRaises(ValueError):
+                    consultar_dados(self.raiz)
+
+    def test_versao_booleana_do_catalogo_e_rejeitada(self):
+        catalogo = json.loads(self.catalogo.read_bytes())
+        catalogo["versao"] = True
+        self.catalogo.write_text(json.dumps(catalogo))
+        relatorio = verificar_dados(self.raiz)
+        self.assertFalse(relatorio["saudavel"])
+        self.assertIn("erro_catalogo", relatorio)

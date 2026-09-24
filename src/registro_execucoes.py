@@ -49,8 +49,21 @@ def ler_execucoes(raiz, indicador=None, limite=20):
         registro = ler_execucao(raiz, caminho.stem)
         if indicador is None or registro.get("indicador") == indicador:
             registros.append(registro)
-    registros.sort(key=lambda item: (item["iniciado_em_utc"], item["id"]), reverse=True)
+    registros.sort(key=lambda item: (_instante(item["iniciado_em_utc"]), item["id"]), reverse=True)
     return registros[:limite]
+
+
+
+def _instante(valor):
+    try:
+        if not isinstance(valor, str):
+            raise ValueError
+        instante = datetime.fromisoformat(valor)
+        if instante.utcoffset() is None:
+            raise ValueError
+        return instante.astimezone(timezone.utc)
+    except (ValueError, OverflowError):
+        raise ValueError("Horário de execução inválido; informe uma data ISO com fuso horário.") from None
 
 
 def validar_id_execucao(identificador):
@@ -72,4 +85,10 @@ def ler_execucao(raiz, identificador):
         or registro.get("status") not in ("em_execucao", "atualizado", "sem_alteracao", "falha")
     ):
         raise ValueError("Registro de execução inválido.")
+    inicio = _instante(registro["iniciado_em_utc"])
+    if registro["status"] != "em_execucao" and registro.get("finalizado_em_utc") is None:
+        raise ValueError("Horário final ausente em execução concluída.")
+    if registro.get("finalizado_em_utc") is not None:
+        if _instante(registro["finalizado_em_utc"]) < inicio:
+            raise ValueError("Horário final da execução é anterior ao início.")
     return registro

@@ -91,3 +91,27 @@ com autorização do usuário. A [primeira execução no GitHub](https://github.
 validou instalação, dependências e os 128 testes em Ubuntu 24.04 com Python 3.14.4.
 O fluxo atende PRs para main, pushes na main e execução manual.
 Veja [configuração e limites](proposta_testes_automaticos.md).
+
+## Estado operacional das atualizações — 24/09/2026
+
+Implementado relatório separado para integridade dos dados e atenção operacional.
+Cada indicador informa a última tentativa, a última concluída e execuções
+sem conclusão. Horários do histórico são validados e ordenados por instante.
+
+Validação desta etapa: 138 testes passaram. A verificação da base real com
+histórico retornou integridade aprovada e atenção operacional falsa.
+Os dois indicadores mantêm os dados publicados anteriormente.
+
+A situação operacional não comprova atualização em relação ao calendário do IBGE.
+
+### Continuidade da revisão
+
+A verificação também passou a rejeitar nome, critério, versão e horário de
+publicação inconsistentes. Os testes reproduziram a falha antes da correção.
+A suíte local está em 140 testes passando; a base real permanece íntegra,
+sem atenção operacional, com conteúdo e horários de modificação preservados.
+
+A entrega está organizada na branch `codex/estado-operacional`.
+Após o bloqueio inicial da revisão automática, o usuário autorizou
+explicitamente commit, push e abertura do PR desta etapa.
+A integração à main desta etapa ainda não está autorizada.
