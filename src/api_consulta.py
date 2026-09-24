@@ -1,6 +1,8 @@
 """API HTTP local e somente de leitura dos indicadores publicados."""
 
 import argparse
+from dataclasses import dataclass
+import hashlib
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
@@ -21,6 +23,16 @@ class ErroConsulta(ValueError):
         self.status = status
         self.codigo = codigo
         super().__init__(mensagem)
+
+
+
+@dataclass(frozen=True)
+class RespostaCSV:
+    conteudo: bytes
+    indicador: str
+    sha256_bruto: str
+    sha256_csv_publicado: str
+    execucao_id: str | None = None
 
 
 def _parametros(query, permitidos):
@@ -81,7 +93,7 @@ def consultar_rota(alvo, raiz):
         _parametros(url.query, set())
         relatorio = _saude_publica(verificar_dados(raiz))
         return (200 if relatorio["saudavel"] else 503), relatorio
-    rota = re.fullmatch(r"/indicadores/([a-z0-9_]+)/(dados|metadados|execucoes)", url.path)
+    rota = re.fullmatch(r"/indicadores/([a-z0-9_]+)/(dados|dados\.csv|metadados|execucoes)", url.path)
     if not rota:
         raise ErroConsulta(404, "rota_desconhecida", "Rota não encontrada.")
     indicador, recurso = rota.groups()
@@ -97,7 +109,7 @@ def consultar_rota(alvo, raiz):
             "indicador": indicador, "limite": int(valor),
             "execucoes": [_resumo_execucao(registro) for registro in registros],
         }
-    filtros = _parametros(url.query, {"ano", "inicio", "fim", "execucao"} if recurso == "dados" else {"execucao"})
+    filtros = _parametros(url.query, {"ano", "inicio", "fim", "execucao"} if recurso in ("dados", "dados.csv") else {"execucao"})
     execucao_id = filtros.pop("execucao", None)
     if execucao_id is not None:
         try:
@@ -118,6 +130,14 @@ def consultar_rota(alvo, raiz):
         if execucao_id is not None:
             resultado["execucao_id"] = execucao_id
         return 200, resultado
+    if recurso == "dados.csv":
+        return 200, RespostaCSV(
+            conteudo=serializar_publicacao(publicacao, indicador, formato="csv", **filtros),
+            indicador=indicador,
+            sha256_bruto=publicacao["metadados"]["bruto"]["sha256"],
+            sha256_csv_publicado=publicacao["metadados"]["csv"]["sha256"],
+            execucao_id=execucao_id,
+        )
     resultado = json.loads(serializar_publicacao(
         publicacao, indicador, formato="json", execucao_id=execucao_id, **filtros,
     ))
@@ -141,9 +161,21 @@ class ManipuladorConsulta(BaseHTTPRequestHandler):
         pass
 
     def _responder(self, status, corpo, *, permitir=False):
-        conteudo = (json.dumps(corpo, ensure_ascii=False, sort_keys=True) + "\n").encode("utf-8")
+        csv = isinstance(corpo, RespostaCSV)
+        conteudo = corpo.conteudo if csv else (
+            json.dumps(corpo, ensure_ascii=False, sort_keys=True) + "\n"
+        ).encode("utf-8")
         self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Type", "text/csv; charset=utf-8" if csv else "application/json; charset=utf-8")
+        if csv:
+            sha256 = hashlib.sha256(conteudo).hexdigest()
+            nome = f"{corpo.indicador}-{sha256}.csv"
+            self.send_header("Content-Disposition", f'attachment; filename="{nome}"')
+            self.send_header("X-SHA256-Conteudo", sha256)
+            self.send_header("X-SHA256-Bruto", corpo.sha256_bruto)
+            self.send_header("X-SHA256-CSV-Publicado", corpo.sha256_csv_publicado)
+            if corpo.execucao_id is not None:
+                self.send_header("X-Execucao-Id", corpo.execucao_id)
         self.send_header("Content-Length", str(len(conteudo)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")

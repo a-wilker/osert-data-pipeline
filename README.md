@@ -185,3 +185,7 @@ Veja [comparação, consulta histórica e compatibilidade](docs/revisoes_histori
 
 O GitHub Actions executa a suíte em PRs para a main e após alterações na main.
 Consulte [configuração e escopo](docs/proposta_testes_automaticos.md).
+
+A API também permite baixar CSV em
+`/indicadores/{id}/dados.csv`, com os mesmos filtros e seleção de execução
+histórica. A resposta identifica o conteúdo e sua origem por hashes.

@@ -115,3 +115,23 @@ A entrega está organizada na branch `codex/estado-operacional`.
 Após o bloqueio inicial da revisão automática, o usuário autorizou
 explicitamente commit, push e abertura do PR desta etapa.
 A integração à main desta etapa ainda não está autorizada.
+
+## Exportação CSV pela API — 24/09/2026
+
+Implementada localmente na branch `codex/exportacao-csv-api` a rota
+`/indicadores/{id}/dados.csv`, com filtros e seleção de execução histórica.
+Os bytes correspondem à exportação local. A resposta inclui nome de download,
+hash do conteúdo filtrado, hash do bruto e hash do CSV completo publicado.
+
+Validações executadas:
+- 146 testes passaram.
+- Erros retornam JSON e não iniciam download.
+- Símbolos SIDRA e cabeçalho de consultas vazias preservados.
+- Publicação atualizada durante a consulta não mistura dados e hashes.
+- Download HTTP real de 2026: duas observações de desocupação e uma de população.
+- Conteúdo e hashes conferidos; arquivos da base preservados e servidor encerrado.
+- `git diff --check` sem erros.
+
+O usuário autorizou a continuidade do desenvolvimento e da publicação
+sem novas aprovações por etapa. A entrega segue por PR e integração após
+validação automática.
