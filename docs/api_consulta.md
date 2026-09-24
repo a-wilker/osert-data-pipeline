@@ -32,6 +32,7 @@ A atualização acessa o SIDRA. As rotas HTTP funcionam somente sobre a base loc
 | --- | --- |
 | GET /indicadores | Objeto com `indicadores`: identificador, nome, unidade, periodicidade e `publicado` |
 | GET /indicadores/{id}/dados | Observações filtradas e metadados da publicação |
+| GET /indicadores/{id}/dados.csv | Download de CSV com filtros e identificação da publicação |
 | GET /indicadores/{id}/metadados | Identificador, fonte, contrato, cobertura, arquivos e versão publicada |
 | GET /indicadores/{id}/execucoes | Execuções recentes e resumo das alterações |
 | GET /saude | Integridade da base, lacunas entre extremos e avisos operacionais |
@@ -53,7 +54,7 @@ curl 'http://127.0.0.1:8000/saude'
 
 ## Filtros e contrato da resposta
 
-A rota de dados aceita os filtros abaixo:
+As rotas de dados JSON e CSV aceitam os filtros abaixo:
 
 - `ano`: inteiro de 1 a 9999, com até quatro algarismos.
 - `inicio` e `fim`: limites inclusivos; cada um pode ser usado sozinho.
@@ -123,7 +124,7 @@ HEAD retorna os cabeçalhos de erro sem corpo, conforme a semântica HTTP.
 Métodos não reconhecidos e mensagens HTTP malformadas podem ser rejeitados
 pelo servidor padrão antes do tratamento das rotas.
 
-As respostas das rotas são JSON UTF-8 e incluem `Cache-Control: no-store`,
+As respostas são JSON UTF-8, exceto o sucesso de `dados.csv`, que retorna CSV UTF-8. Todas incluem `Cache-Control: no-store`,
 para que o cliente consulte a versão publicada em cada solicitação.
 Falhas de integridade não expõem caminhos absolutos; use o comando
 `verificar` para obter o diagnóstico detalhado no terminal.
@@ -188,3 +189,59 @@ A rota `/saude` inclui `atencao_operacional` e o estado de `atualizacao`
 por indicador. Uma falha recente de coleta não torna os dados anteriores
 corrompidos: a resposta pode ser HTTP 200 com `saudavel: true` e
 `atencao_operacional: true`. Consulte os [estados operacionais](operacao_sistema.md#estado-operacional-das-atualizações).
+
+## Download de CSV
+
+```text
+GET /indicadores/populacao_estimada_teresina/dados.csv?ano=2026
+GET /indicadores/taxa_desocupacao_teresina/dados.csv?inicio=202401&fim=202602
+GET /indicadores/populacao_estimada_teresina/dados.csv?execucao=ID_EXECUCAO&ano=2026
+```
+
+A rota aceita os mesmos filtros e a mesma seleção de execução histórica
+da rota de dados JSON. O retorno de sucesso é `text/csv; charset=utf-8`,
+com as 17 colunas do contrato e os mesmos bytes da exportação local.
+Períodos sem observações retornam apenas o cabeçalho CSV.
+Símbolos e precisão numérica são preservados.
+
+A resposta inclui `Content-Disposition: attachment`, com nome formado pelo
+indicador e pelo SHA-256 do conteúdo recebido. O download é gerado em memória;
+a API não cria um arquivo na pasta de dados.
+
+| Cabeçalho | Significado |
+| --- | --- |
+| X-SHA256-Conteudo | Hash dos bytes recebidos, já com os filtros aplicados |
+| X-SHA256-Bruto | Hash da coleta bruta que originou a publicação |
+| X-SHA256-CSV-Publicado | Hash do CSV completo da publicação, antes dos filtros |
+| X-Execucao-Id | Execução selecionada, presente somente na consulta histórica |
+
+Os hashes identificam conteúdos, não comprovam a identidade de quem enviou
+o arquivo. Para reter toda a descrição da publicação e seus filtros junto
+com os valores, use também a resposta JSON, que inclui metadados completos.
+Uma consulta vazia mantém a proveniência nos cabeçalhos HTTP.
+
+Exemplo de download com curl, no mesmo ambiente do servidor:
+
+```bash
+curl --fail --remote-header-name --remote-name 'http://127.0.0.1:8000/indicadores/populacao_estimada_teresina/dados.csv?ano=2026'
+```
+
+Erros continuam usando JSON, sem cabeçalho de download: 400 para filtros
+inválidos, 404 para execução desconhecida, 409 para publicação indisponível
+e 503 para inconsistência da base. Consulte a tabela geral de erros para
+as demais condições.
+
+Fluxo: filtros → leitura de uma publicação → validação → CSV em memória →
+resposta com origem, hash do conteúdo e tamanho em bytes.
+Uma atualização durante a consulta não mistura os valores antigos com os
+hashes da publicação nova.
+
+Essencial agora: diferenciar hash do recorte, hash da série completa e hash
+do bruto. Para depois: ferramentas que importam CSV e guardam metadados.
+
+1. Por que o hash do recorte pode diferir do hash do CSV publicado?
+2. Onde fica a referência à fonte quando a consulta não tem linhas?
+3. Qual formato inclui os metadados completos no próprio corpo da resposta?
+
+Prática: consulte o mesmo indicador com dois filtros e compare os hashes
+do conteúdo e do bruto.

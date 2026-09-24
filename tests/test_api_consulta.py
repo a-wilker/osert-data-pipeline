@@ -26,13 +26,14 @@ class ApiConsultaTests(PublicacaoTestCase):
         self.thread.join(timeout=5)
         self.assertFalse(self.thread.is_alive())
 
-    def requisitar(self, caminho, metodo="GET"):
+    def requisitar(self, caminho, metodo="GET", *, decodificar_json=True):
         conexao = http.client.HTTPConnection("127.0.0.1", self.servidor.server_port, timeout=5)
         try:
             conexao.request(metodo, caminho)
             resposta = conexao.getresponse()
             conteudo = resposta.read()
-            return resposta.status, dict(resposta.getheaders()), json.loads(conteudo) if conteudo else None
+            corpo = (json.loads(conteudo) if conteudo else None) if decodificar_json else conteudo
+            return resposta.status, dict(resposta.getheaders()), corpo
         finally:
             conexao.close()
 
@@ -257,3 +258,119 @@ class ApiConsultaTests(PublicacaoTestCase):
         item = next(i for i in corpo["indicadores"] if i["indicador"] == POPULACAO)
         self.assertEqual(item["atualizacao"]["estado"], "ultima_tentativa_falhou")
         self.assertNotIn(str(self.raiz), json.dumps(corpo))
+
+    def test_csv_http_equivale_exportacao_local_e_identifica_conteudo(self):
+        import hashlib
+        from src.sistema_dados import exportar_dados
+        for indicador in (DESOCUPACAO, POPULACAO):
+            with self.subTest(indicador=indicador):
+                destino = self.raiz.parent / f"{indicador}.csv"
+                exportar_dados(destino, self.raiz, 2026, indicador)
+                status, headers, corpo = self.requisitar(
+                    f"/indicadores/{indicador}/dados.csv?ano=2026", decodificar_json=False,
+                )
+                self.assertEqual(status, 200)
+                self.assertEqual(corpo, destino.read_bytes())
+                self.assertEqual(headers["Content-Type"], "text/csv; charset=utf-8")
+                self.assertEqual(int(headers["Content-Length"]), len(corpo))
+                sha = hashlib.sha256(corpo).hexdigest()
+                self.assertEqual(headers["X-SHA256-Conteudo"], sha)
+                self.assertEqual(headers["Content-Disposition"], f'attachment; filename="{indicador}-{sha}.csv"')
+                self.assertEqual(headers["Cache-Control"], "no-store")
+                meta = self.requisitar(f"/indicadores/{indicador}/metadados")[2]
+                self.assertEqual(headers["X-SHA256-Bruto"], meta["bruto"]["sha256"])
+                self.assertEqual(headers["X-SHA256-CSV-Publicado"], meta["csv"]["sha256"])
+
+    def test_csv_historico_preserva_versao_apos_atualizacao(self):
+        import csv
+        import io
+        primeira = atualizar_dados(self.raiz, POPULACAO)
+        self.series["6579"][-1]["V"] = "910000"
+        atualizar_dados(self.raiz, POPULACAO)
+        identificador = primeira["execucao_id"]
+        status, headers, corpo = self.requisitar(
+            f"/indicadores/{POPULACAO}/dados.csv?execucao={identificador}&inicio=2026&fim=2026",
+            decodificar_json=False,
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(headers["X-Execucao-Id"], identificador)
+        self.assertEqual(headers["X-SHA256-Bruto"], primeira["dados"]["bruto"]["sha256"])
+        linhas = list(csv.DictReader(io.StringIO(corpo.decode("utf-8"))))
+        self.assertEqual(len(linhas), 1)
+        self.assertEqual(linhas[0]["valor_numerico"], "900000")
+
+    def test_csv_vazio_conserva_cabecalho_e_proveniencia(self):
+        import csv
+        import io
+        from src.formato_csv import COLUNAS
+        status, headers, corpo = self.requisitar(
+            f"/indicadores/{POPULACAO}/dados.csv?ano=2000", decodificar_json=False,
+        )
+        self.assertEqual(status, 200)
+        leitor = csv.DictReader(io.StringIO(corpo.decode("utf-8")))
+        self.assertEqual(leitor.fieldnames, list(COLUNAS))
+        self.assertEqual(list(leitor), [])
+        self.assertEqual(len(headers["X-SHA256-Bruto"]), 64)
+
+    def test_csv_simbolos_preservados_e_consulta_sem_gravacao_ou_sidra(self):
+        import csv
+        import io
+        self.series["6468"][-1]["V"] = "..."
+        atualizar_dados(self.raiz)
+        antes = {p: (p.read_bytes(), p.stat().st_mtime_ns) for p in self.raiz.rglob("*") if p.is_file()}
+        self.rede.reset_mock()
+        self.rede.side_effect = AssertionError("Exportação HTTP não deve consultar SIDRA")
+        status, _, corpo = self.requisitar(
+            f"/indicadores/{DESOCUPACAO}/dados.csv?inicio=202602", decodificar_json=False,
+        )
+        self.assertEqual(status, 200)
+        linha = list(csv.DictReader(io.StringIO(corpo.decode("utf-8"))))[0]
+        self.assertEqual(linha["valor_original"], "...")
+        self.assertEqual(linha["valor_numerico"], "")
+        self.assertEqual(linha["status_valor"], "simbolo_sidra")
+        self.assertEqual(antes, {p: (p.read_bytes(), p.stat().st_mtime_ns)
+                                for p in self.raiz.rglob("*") if p.is_file()})
+        self.rede.assert_not_called()
+
+    def test_erros_csv_continuam_json_e_nao_iniciam_download(self):
+        for sufixo, esperado in (("?ano=abc", 400), ("?execucao=" + "0" * 32, 404)):
+            status, headers, corpo = self.requisitar(f"/indicadores/{POPULACAO}/dados.csv{sufixo}")
+            self.assertEqual(status, esperado)
+            self.assertIn("application/json", headers["Content-Type"])
+            self.assertIn("erro", corpo)
+            self.assertNotIn("Content-Disposition", headers)
+        catalogo = json.loads((self.raiz / "catalogo.json").read_bytes())
+        caminho = self.raiz / catalogo["indicadores"][POPULACAO]["csv"]["caminho"]
+        caminho.write_bytes(b"corrompido")
+        status, headers, corpo = self.requisitar(f"/indicadores/{POPULACAO}/dados.csv")
+        self.assertEqual(status, 503)
+        self.assertEqual(corpo["erro"]["codigo"], "base_inconsistente")
+        self.assertNotIn("Content-Disposition", headers)
+
+    def test_csv_e_hashes_permanecem_coerentes_durante_nova_publicacao(self):
+        import csv
+        import io
+        original = sistema._ler_catalogo
+        anterior = original(self.raiz)["indicadores"][POPULACAO]
+        primeira_leitura = True
+
+        def ler_e_atualizar(raiz):
+            nonlocal primeira_leitura
+            catalogo = original(raiz)
+            if primeira_leitura:
+                primeira_leitura = False
+                self.series["6579"][-1]["V"] = "910000"
+                atualizar_dados(self.raiz, POPULACAO)
+            return catalogo
+
+        with patch("src.sistema_dados._ler_catalogo", side_effect=ler_e_atualizar):
+            status, headers, corpo = self.requisitar(
+                f"/indicadores/{POPULACAO}/dados.csv?ano=2026", decodificar_json=False,
+            )
+        self.assertEqual(status, 200)
+        linhas = list(csv.DictReader(io.StringIO(corpo.decode("utf-8"))))
+        self.assertEqual(linhas[0]["valor_numerico"], "900000")
+        self.assertEqual(headers["X-SHA256-Bruto"], anterior["bruto"]["sha256"])
+        self.assertEqual(headers["X-SHA256-CSV-Publicado"], anterior["csv"]["sha256"])
+        atual = self.requisitar(f"/indicadores/{POPULACAO}/dados?ano=2026")[2]
+        self.assertEqual(atual["dados"][0]["valor_numerico"], "910000")
