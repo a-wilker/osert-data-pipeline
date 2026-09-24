@@ -374,3 +374,15 @@ class ApiConsultaTests(PublicacaoTestCase):
         self.assertEqual(headers["X-SHA256-CSV-Publicado"], anterior["csv"]["sha256"])
         atual = self.requisitar(f"/indicadores/{POPULACAO}/dados?ano=2026")[2]
         self.assertEqual(atual["dados"][0]["valor_numerico"], "910000")
+
+    def test_contrato_http_independe_do_catalogo_e_rejeita_filtros(self):
+        from src.sistema_dados import consultar_contrato
+        self.rede.reset_mock()
+        self.rede.side_effect = AssertionError("Contrato não deve acessar SIDRA")
+        with patch("src.sistema_dados._ler_catalogo", side_effect=AssertionError("Sem catálogo")):
+            status, _, corpo = self.requisitar(f"/indicadores/{POPULACAO}/contrato")
+        self.assertEqual(status, 200)
+        self.assertEqual(corpo, consultar_contrato(POPULACAO))
+        self.assertEqual(self.requisitar(f"/indicadores/{POPULACAO}/contrato?ano=2026")[0], 400)
+        self.assertEqual(self.requisitar("/indicadores/desconhecido/contrato")[0], 404)
+        self.rede.assert_not_called()

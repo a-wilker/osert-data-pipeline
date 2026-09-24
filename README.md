@@ -189,3 +189,7 @@ Consulte [configuração e escopo](docs/proposta_testes_automaticos.md).
 A API também permite baixar CSV em
 `/indicadores/{id}/dados.csv`, com os mesmos filtros e seleção de execução
 histórica. A resposta identifica o conteúdo e sua origem por hashes.
+
+Os contratos também podem ser consultados em JSON pelo comando
+`python -m src.sistema_dados contrato --indicador populacao_estimada_teresina`
+ou pela rota `/indicadores/{id}/contrato`, inclusive antes da primeira coleta.

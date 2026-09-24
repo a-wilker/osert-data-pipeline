@@ -18,7 +18,7 @@ import requests
 from .consulta_taxa_desocupacao import coletar_taxa_desocupacao, TABELA, VARIAVEL, TERRITORIO, URL
 from .transforma_taxa_desocupacao import transformar_taxa_desocupacao, normalizar_serie
 from .arquivos import gravar_imutavel
-from .formato_csv import COLUNAS
+from .formato_csv import COLUNAS, SIMBOLOS_SIDRA
 from .revisoes import comparar_observacoes
 from .registro_execucoes import agora_utc, gravar_execucao, iniciar_execucao, ler_execucoes, ler_execucao
 from . import populacao_estimada as populacao
@@ -49,6 +49,56 @@ def _configuracao(indicador):
     if not isinstance(indicador, str) or indicador not in CONFIGURACOES:
         raise ValueError(f"Indicador desconhecido: {indicador}. Use o comando indicadores.")
     return CONFIGURACOES[indicador]
+
+
+def _regra_periodo(config):
+    trimestral = config["periodicidade"] == "trimestral"
+    return {
+        "formato": "AAAA0T" if trimestral else "AAAA",
+        "padrao": r"[0-9]{4}0[1-4]" if trimestral else r"[0-9]{4}",
+        "exemplo": "202401" if trimestral else "2024",
+        "ano_minimo": 1, "ano_maximo": 9999,
+    }
+
+
+def consultar_contrato(indicador=INDICADOR):
+    """Descreve o contrato suportado sem acessar catálogo, arquivos ou rede."""
+    config = _configuracao(indicador)
+    trimestral = config["periodicidade"] == "trimestral"
+    return {
+        "versao_contrato": 1, "indicador": indicador, "nome": config["nome"],
+        "fonte": "SIDRA/IBGE", "url_fonte": config["url"],
+        "tabela": config["tabela"], "variavel": config["variavel"],
+        "territorio": {"nivel": "municipio", "codigo": TERRITORIO, "nome": "Teresina (PI)"},
+        "unidade": config["unidade"], "periodicidade": config["periodicidade"],
+        "classificacoes": "sem_classificacoes",
+        "grao": ["tabela", "variavel", "territorio_codigo", "periodo_codigo"],
+        "periodo": _regra_periodo(config),
+        "valores": {
+            "dominio_numerico": "decimal" if trimestral else "inteiro",
+            "minimo": "0", "maximo": "100" if trimestral else None,
+            "representacao_saida": "string", "separador_decimal": ".",
+            "simbolos_sidra": sorted(SIMBOLOS_SIDRA),
+            "valor_numerico_para_simbolos": "",
+            "status_permitidos": ["numerico", "simbolo_sidra"],
+        },
+        "colunas": [
+            {
+                "nome": coluna, "tipo_json": "string",
+                "vazio_permitido": coluna == "valor_numerico" or (coluna == "trimestre" and not trimestral),
+            }
+            for coluna in COLUNAS
+        ],
+        "csv": {"codificacao": "utf-8", "separador": ",", "quebra_linha": "LF"},
+        "ordenacao": ["periodo_codigo"],
+        "periodos_duplicados_permitidos": False,
+        "preenche_periodos_ausentes": False,
+        "filtros": {
+            "ano": {"tipo": "integer", "minimo": 1, "maximo": 9999},
+            "inicio_fim": {"inclusivos": True, "aceita_limite_unico": True},
+            "combina_ano_com_intervalo": False,
+        },
+    }
 
 
 def listar_indicadores(diretorio_dados=Path("data")):
@@ -369,12 +419,13 @@ def _validar_filtros(config, ano, inicio, fim):
         raise ValueError("O ano deve ser um inteiro entre 1 e 9999.")
     if ano is not None and (inicio is not None or fim is not None):
         raise ValueError("Use ano ou intervalo de períodos, sem combinar os dois.")
-    padrao = r"[0-9]{4}0[1-4]" if config["periodicidade"] == "trimestral" else r"[0-9]{4}"
+    regra = _regra_periodo(config)
+    padrao = regra["padrao"]
     for nome, valor in (("inicio", inicio), ("fim", fim)):
         if valor is not None and (
             not isinstance(valor, str) or not re.fullmatch(padrao, valor) or int(valor[:4]) == 0
         ):
-            exemplo = "202401" if config["periodicidade"] == "trimestral" else "2024"
+            exemplo = regra["exemplo"]
             raise ValueError(f"Período {nome} inválido. Exemplo para este indicador: {exemplo}.")
     if inicio is not None and fim is not None and inicio > fim:
         raise ValueError("O início do intervalo deve ser menor ou igual ao fim.")
@@ -581,6 +632,8 @@ def main():
     parser.add_argument("--diretorio-dados", type=Path, default=Path("data"))
     comandos = parser.add_subparsers(dest="comando", required=True)
     comandos.add_parser("indicadores", help="Lista os indicadores disponíveis, sem acessar a rede.")
+    contrato = comandos.add_parser("contrato", help="Descreve o contrato do indicador sem precisar de dados publicados.")
+    contrato.add_argument("--indicador", choices=CONFIGURACOES, default=INDICADOR)
     atualizacao = comandos.add_parser("atualizar", help="Coleta, transforma e publica o indicador no catálogo.")
     consulta = comandos.add_parser("consultar", help="Consulta a versão publicada sem internet.")
     selecao = atualizacao.add_mutually_exclusive_group()
@@ -608,6 +661,8 @@ def main():
     try:
         if args.comando == "indicadores":
             print(json.dumps(listar_indicadores(args.diretorio_dados), ensure_ascii=False, indent=2))
+        elif args.comando == "contrato":
+            print(json.dumps(consultar_contrato(args.indicador), ensure_ascii=False, indent=2))
         elif args.comando == "backup":
             from .backup_dados import criar_backup
             print(f"Backup disponível em: {criar_backup(args.saida, args.diretorio_dados)}")
