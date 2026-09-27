@@ -15,12 +15,13 @@ import tempfile
 
 import requests
 
-from .consulta_taxa_desocupacao import coletar_taxa_desocupacao, TABELA, VARIAVEL, TERRITORIO, URL
+from .consulta_taxa_desocupacao import coletar_taxa_desocupacao, TABELA, VARIAVEL, URL
 from .transforma_taxa_desocupacao import transformar_taxa_desocupacao, normalizar_serie
 from .arquivos import gravar_imutavel
 from .formato_csv import COLUNAS, SIMBOLOS_SIDRA
 from .revisoes import comparar_observacoes
 from .registro_execucoes import agora_utc, gravar_execucao, iniciar_execucao, ler_execucoes, ler_execucao
+from .territorios import TERESINA_CODIGO as TERRITORIO, TERESINA_NOME as TERRITORIO_NOME
 from . import populacao_estimada as populacao
 
 INDICADOR = "taxa_desocupacao_teresina"
@@ -69,7 +70,7 @@ def consultar_contrato(indicador=INDICADOR):
         "versao_contrato": 1, "indicador": indicador, "nome": config["nome"],
         "fonte": "SIDRA/IBGE", "url_fonte": config["url"],
         "tabela": config["tabela"], "variavel": config["variavel"],
-        "territorio": {"nivel": "municipio", "codigo": TERRITORIO, "nome": "Teresina (PI)"},
+        "territorio": {"nivel": "municipio", "codigo": TERRITORIO, "nome": TERRITORIO_NOME},
         "unidade": config["unidade"], "periodicidade": config["periodicidade"],
         "classificacoes": "sem_classificacoes",
         "grao": ["tabela", "variavel", "territorio_codigo", "periodo_codigo"],
@@ -152,7 +153,7 @@ def _linhas_catalogadas(raiz, entrada, indicador=INDICADOR):
     esperados = {
         "nome": config["nome"], "criterio_versao_atual": "ultima_coleta_validada",
         "fonte": "SIDRA/IBGE", "tabela": config["tabela"], "variavel": config["variavel"],
-        "territorio_codigo": TERRITORIO, "territorio_nome": "Teresina (PI)",
+        "territorio_codigo": TERRITORIO, "territorio_nome": TERRITORIO_NOME,
         "unidade": config["unidade"], "periodicidade": config["periodicidade"],
         "url_fonte": config["url"], "versao_contrato": 1,
         "classificacoes": "sem_classificacoes",
@@ -266,7 +267,7 @@ def _atualizar_indicador(raiz, indicador, config, etapa):
     entrada = {
         "nome": config["nome"],
         "fonte": "SIDRA/IBGE", "tabela": config["tabela"], "variavel": config["variavel"],
-        "territorio_codigo": TERRITORIO, "territorio_nome": "Teresina (PI)",
+        "territorio_codigo": TERRITORIO, "territorio_nome": TERRITORIO_NOME,
         "unidade": config["unidade"], "periodicidade": config["periodicidade"],
         "classificacoes": "sem_classificacoes",
         "grao": ["tabela", "variavel", "territorio_codigo", "periodo_codigo"],

@@ -112,6 +112,14 @@ class ExtracaoTaxaDesocupacaoTest(unittest.TestCase):
             extrair_taxa_desocupacao(self.diretorio_dados_brutos)
 
     @patch("src.consulta_taxa_desocupacao.requests.get")
+    def test_nome_territorio_incorreto_falha_antes_de_persistir(self, mock_get):
+        incorreta = {**OUTRA_OBSERVACAO_VALIDA, "D1N": "Timon (MA)"}
+        mock_get.return_value = self._resposta([OBSERVACAO_VALIDA, incorreta])
+        with self.assertRaisesRegex(ValueError, "D1N"):
+            extrair_taxa_desocupacao(self.diretorio_dados_brutos)
+        self.assertFalse(self.diretorio_dados_brutos.exists())
+
+    @patch("src.consulta_taxa_desocupacao.requests.get")
     def test_variavel_incorreta_em_qualquer_observacao_falha(self, mock_get):
         incorreta = {**OUTRA_OBSERVACAO_VALIDA, "D2C": "9999"}
         mock_get.return_value = self._resposta([OBSERVACAO_VALIDA, incorreta])

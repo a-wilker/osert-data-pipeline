@@ -146,3 +146,12 @@ valores, colunas e filtros sem consultar arquivos publicados ou rede.
 normalizadas, resposta independente do catálogo e rejeição de parâmetros extras.
 As regras de formato de período são compartilhadas com a validação dos filtros.
 A etapa de CSV anterior foi integrada pelo PR #6 e validada na main.
+
+## Coerência territorial — 27/09/2026
+
+Os dois indicadores agora exigem a correspondência exata entre
+`D1C="2211001"` e `D1N="Teresina (PI)"`. A regra é aplicada na coleta, antes
+da persistência do bruto, e novamente no reprocessamento offline. Código e
+nome canônicos têm fonte única em `src/territorios.py`.
+
+A suíte completa contém 157 testes após esta correção.

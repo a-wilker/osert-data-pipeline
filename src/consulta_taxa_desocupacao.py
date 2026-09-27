@@ -6,12 +6,15 @@ import requests
 
 if __package__:
     from .arquivos import gravar_imutavel
+    from .territorios import TERESINA_CODIGO, TERESINA_NOME
 else:
     from arquivos import gravar_imutavel
+    from territorios import TERESINA_CODIGO, TERESINA_NOME
 
 TABELA = "6468"
 VARIAVEL = "4099"
-TERRITORIO = "2211001"
+TERRITORIO = TERESINA_CODIGO
+TERRITORIO_NOME = TERESINA_NOME
 PERIODO = "all"
 
 URL = (
@@ -69,6 +72,10 @@ def _consultar_e_salvar(diretorio_dados_brutos):
                     f"A API retornou {campo} ausente, vazio ou não textual "
                     f"para o período {periodo}."
                 )
+        if observacao["D1N"] != TERRITORIO_NOME:
+            raise ValueError(
+                f"A API retornou D1N diferente do nome territorial esperado: {TERRITORIO_NOME}."
+            )
 
     df = pd.DataFrame(dados)
     resultado = df[["D1N", "D3N", "MN", "V"]]

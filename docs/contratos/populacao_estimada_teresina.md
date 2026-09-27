@@ -21,9 +21,10 @@ Fonte: [consulta oficial usada na coleta](https://apisidra.ibge.gov.br/values/t/
 ## Entrada e valores
 
 A resposta precisa ser uma lista não vazia de objetos. Os códigos são textos
-e devem coincidir com os da tabela acima. Nome do território, ano e valor
-devem ser textos não vazios. O ano precisa ter quatro dígitos e ser maior
-que zero. Períodos duplicados ou dimensões D4C/D4N e posteriores causam erro.
+e devem coincidir com os da tabela acima. `D1N` deve ser exatamente
+`Teresina (PI)`; ano e valor devem ser textos não vazios. O ano precisa ter
+quatro dígitos e ser maior que zero. Períodos duplicados ou dimensões D4C/D4N
+e posteriores causam erro.
 
 Valores numéricos representam contagens inteiras não negativas.
 Frações, números negativos, notação científica e separadores de milhar

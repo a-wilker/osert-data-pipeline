@@ -112,6 +112,31 @@ class PopulacaoEstimadaTest(unittest.TestCase):
                     coletar_populacao_estimada(self.raiz / "raw")
                 self.assertFalse((self.raiz / "raw").exists())
 
+    def test_rejeita_nome_territorio_incorreto_antes_de_salvar(self):
+        self.populacao = [{**OBS, "D1N": "Timon (MA)"}]
+        with self.assertRaisesRegex(ValueError, "D1N"):
+            coletar_populacao_estimada(self.raiz / "raw")
+        self.assertFalse((self.raiz / "raw").exists())
+
+    def test_reprocessamento_rejeita_nome_territorio_incorreto_sem_alterar_bruto(self):
+        conteudo = (
+            json.dumps([{**OBS, "D1N": "Timon (MA)"}], ensure_ascii=False, indent=2) + "\n"
+        ).encode("utf-8")
+        sha256 = hashlib.sha256(conteudo).hexdigest()
+        bruto = self.raiz / "raw" / (
+            "tabela-6579_variavel-9324_territorio-2211001"
+            f"_periodo-all_sha256-{sha256}.json"
+        )
+        bruto.parent.mkdir(parents=True)
+        bruto.write_bytes(conteudo)
+        antes = bruto.read_bytes()
+
+        with self.assertRaisesRegex(ValueError, "D1N"):
+            transformar_populacao_estimada(bruto, self.raiz / "processed")
+
+        self.assertEqual(bruto.read_bytes(), antes)
+        self.assertFalse((self.raiz / "processed").exists())
+
     def test_rejeita_series_invalidas_e_periodos_duplicados(self):
         for dados in ([], {}, [None], [OBS, OBS]):
             with self.subTest(dados=dados):

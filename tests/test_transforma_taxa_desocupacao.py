@@ -125,6 +125,14 @@ class TransformacaoTaxaDesocupacaoTest(unittest.TestCase):
                 self.assertFalse(self.saida.exists())
                 self.assertEqual(bruto.read_bytes(), antes)
 
+    def test_rejeita_nome_territorio_incorreto_sem_alterar_bruto(self):
+        bruto = self._bruto([{**OBSERVACAO, "D1N": "Timon (MA)"}])
+        antes = bruto.read_bytes()
+        with self.assertRaisesRegex(ValueError, "D1N"):
+            transformar_taxa_desocupacao(bruto, self.saida)
+        self.assertFalse(self.saida.exists())
+        self.assertEqual(bruto.read_bytes(), antes)
+
     def test_rejeita_periodo_duplicado(self):
         bruto = self._bruto([OBSERVACAO, {**OBSERVACAO, "V": "8.0"}])
         with self.assertRaisesRegex(ValueError, "duplicado"):
