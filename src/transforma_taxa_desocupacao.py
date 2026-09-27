@@ -12,7 +12,7 @@ import re
 from .formato_csv import COLUNAS, SIMBOLOS_SIDRA
 from .arquivos import gravar_imutavel
 
-from .consulta_taxa_desocupacao import PERIODO, TABELA, TERRITORIO, URL, VARIAVEL
+from .consulta_taxa_desocupacao import PERIODO, TABELA, TERRITORIO, TERRITORIO_NOME, URL, VARIAVEL
 
 DIRETORIO_PROCESSADOS = Path("data/processed")
 
@@ -41,6 +41,8 @@ def _normalizar(observacao, arquivo, sha256):
         raise ValueError("Classificação ou dimensão adicional não prevista no contrato.")
 
     territorio = _texto(observacao, "D1N")
+    if territorio != TERRITORIO_NOME:
+        raise ValueError(f"Campo D1N diferente do nome territorial esperado: {TERRITORIO_NOME}.")
     periodo_nome = _texto(observacao, "D3N")
     periodo = _texto(observacao, "D3C")
     if not re.fullmatch(r"[0-9]{4}0[1-4]", periodo) or int(periodo[:4]) == 0:

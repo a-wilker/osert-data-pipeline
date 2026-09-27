@@ -31,7 +31,7 @@ alterar seu conteúdo quebra essa verificação.
 O JSON deve conter uma lista não vazia de objetos. Cada objeto precisa ter:
 
 - `NC=6`, `MC=2`, `MN=%`, `D1C=2211001` e `D2C=4099`, como texto.
-- `D1N` (nome do território), `D3N` (nome do período) e `V` como textos não vazios.
+- `D1N=Teresina (PI)` exatamente; `D3N` (nome do período) e `V` como textos não vazios.
 - `D3C` com quatro dígitos de ano, maior que zero, e trimestre de `01` a `04`.
 
 Períodos duplicados e dimensões `D4C/D4N` ou posteriores causam erro:
@@ -62,7 +62,7 @@ erro para que o contrato seja revisto conscientemente.
 | tabela | 6468 |
 | variavel | 4099 |
 | territorio_codigo | 2211001 |
-| territorio_nome | D1N original |
+| territorio_nome | D1N original, após correspondência exata com Teresina (PI) |
 | periodo_codigo | D3C original |
 | periodo_nome | D3N original |
 | ano | Ano extraído de D3C |

@@ -12,10 +12,12 @@ import requests
 
 from .formato_csv import COLUNAS, SIMBOLOS_SIDRA
 from .arquivos import gravar_imutavel
+from .territorios import TERESINA_CODIGO, TERESINA_NOME
 
 TABELA = "6579"
 VARIAVEL = "9324"
-TERRITORIO = "2211001"
+TERRITORIO = TERESINA_CODIGO
+TERRITORIO_NOME = TERESINA_NOME
 PERIODO = "all"
 URL = (
     f"https://apisidra.ibge.gov.br/values/t/{TABELA}"
@@ -50,6 +52,8 @@ def _normalizar(observacao, arquivo, sha256):
         raise ValueError("Classificação ou dimensão adicional não prevista no contrato.")
 
     territorio = _texto(observacao, "D1N")
+    if territorio != TERRITORIO_NOME:
+        raise ValueError(f"Campo D1N diferente do nome territorial esperado: {TERRITORIO_NOME}.")
     periodo_nome = _texto(observacao, "D3N")
     periodo = _texto(observacao, "D3C")
     if not re.fullmatch(r"[0-9]{4}", periodo) or int(periodo) == 0:

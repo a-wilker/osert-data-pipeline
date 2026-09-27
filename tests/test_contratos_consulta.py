@@ -17,6 +17,7 @@ class ContratosConsultaTest(PublicacaoTestCase):
                 contrato = consultar_contrato(indicador)
                 self.assertEqual(contrato["indicador"], indicador)
                 self.assertEqual(contrato["territorio"]["codigo"], "2211001")
+                self.assertEqual(contrato["territorio"]["nome"], "Teresina (PI)")
                 self.assertEqual(contrato["valores"]["simbolos_sidra"], sorted(SIMBOLOS_SIDRA))
                 self.assertFalse(contrato["preenche_periodos_ausentes"])
         self.assertFalse(self.raiz.exists())

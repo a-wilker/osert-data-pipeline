@@ -98,10 +98,12 @@ vez. Os valores são mantidos como texto, portanto símbolos especiais do SIDRA
 não são convertidos automaticamente em zero.
 
 Além de exibir a série, o programa preserva exatamente os bytes do corpo HTTP
-recebido do SIDRA em `data/raw/`, sem decodificação ou reserialização. Todas as
-observações são validadas antes da gravação, incluindo os campos de saída
-`D1N`, `D3N`, `MN` e `V`: todos devem conter texto não vazio. Campos ausentes,
-nulos ou de outro tipo interrompem a extração sem criar um arquivo bruto.
+recebido do SIDRA em `data/raw/`, sem decodificação ou reserialização. Antes da
+gravação, todas as observações passam por uma validação inicial, que inclui a
+identidade territorial exata `D1C=2211001` e `D1N=Teresina (PI)`; `D3N`, `MN`
+e `V` devem conter texto não vazio. Campos ausentes, nulos, de outro tipo ou
+incompatíveis com Teresina interrompem a extração sem criar um arquivo bruto.
+A validação integral do contrato ocorre na transformação para CSV.
 A tabela de saída também é preparada antes da gravação.
 
 O nome do arquivo contém tabela, variável, território, o escopo
